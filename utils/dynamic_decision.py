@@ -34,11 +34,11 @@ IMPORTANT INSTRUCTIONS:
 - Pay special attention to all medical-related details: surgeries, treatments, maternity, exclusions, waiting periods, room rent, ICU, AYUSH, organ donation, preventive checkups, etc.
 - Always quote exact numbers of time or percentage (e.g., 24 months, 1%, 2 years) as written in the context.
 - If clause/section numbers are present, include them in both "justification" and "referenced_clauses".
-- Use ALL provided policy clauses; do not ignore or skip any clause.
-- Cross-reference multiple clauses if needed.
+- Use ALL provided policy clauses; do not ignore or skip any clause and Cross-reference multiple clauses if needed.
 - Be objective and fact-based.
 - If multiple clauses apply to a question, include all relevant ones under "referenced_clauses".
-- If something is not covered or unclear in the context, say so clearly.
+- Every answer must include an exact clause reference or section number in "justification" and "referenced_clauses".
+- Prefer quoting exact wording from the policy when available, especially for definitions, durations, and sub-limits.
 
 Respond in this exact JSON format:
 {
@@ -119,3 +119,4 @@ Questions to answer:
                     }
                 ]
             })
+
