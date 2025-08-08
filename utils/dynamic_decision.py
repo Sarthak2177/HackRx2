@@ -26,7 +26,7 @@ class DynamicDecisionEngine:
 
         system_role = "You are a senior insurance policy assistant. Only answer based on provided context. Never assume."
 
-instruction = '''
+        instruction = '''
 Use ONLY the provided context to answer each question as accurately and specifically as possible.
 
 IMPORTANT GUIDELINES:
@@ -46,7 +46,6 @@ Respond in this JSON format:
   ]
 }
 '''
-
 
         # Convert joined_questions to list of strings
         if isinstance(joined_questions, str):
@@ -100,4 +99,3 @@ Questions:
                     }
                 ]
             })
-
