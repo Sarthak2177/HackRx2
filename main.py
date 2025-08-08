@@ -111,8 +111,8 @@ async def run_decision_engine(
     }
 
 async def process_question_batch(batch_questions: List[str], relevant_chunks: List[str]) -> List[str]:
-    max_chunks = 15
-    trimmed_chunks = [chunk[:1000] for chunk in relevant_chunks[:max_chunks]]
+    max_chunks = 20
+    trimmed_chunks = relevant_chunks[:max_chunks]
 
     result = decision_engine.make_decision_from_context("\n".join(batch_questions), {}, trimmed_chunks)
     print("\U0001f9e0 Raw LLM response:\n", result)
@@ -158,3 +158,4 @@ async def process_question_batch(batch_questions: List[str], relevant_chunks: Li
         print("\u274c Parsing error:", str(e))
         print("\u2757Failed content:\n", result)
         return [f"LLM parsing failed: {str(e)}"] * len(batch_questions)
+
