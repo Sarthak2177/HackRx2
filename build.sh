@@ -2,29 +2,25 @@
 # exit on error
 set -o errexit
 
-echo "Starting build process..."
+echo "--- Setting up environment for Rust ---"
+# Set CARGO_HOME to a writable directory. This is the crucial fix.
+export CARGO_HOME="/opt/render/project/.cargo"
 
-# Install Rust toolchain
-echo "Installing Rust toolchain..."
+# Install the Rust toolchain
+echo "--- Installing Rust toolchain ---"
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o rustup-init.sh
 sh rustup-init.sh -y
-# Add cargo to the path for the build process
-export PATH="$HOME/.cargo/bin:$PATH"
-echo "Rust toolchain installed."
+# Add the new cargo bin directory to the PATH
+export PATH="$CARGO_HOME/bin:$PATH"
+echo "Rust toolchain configured."
 
 # Upgrade pip
+echo "--- Upgrading pip ---"
 pip install --upgrade pip
 
-# Install dependencies from requirements.txt
-# Use --no-cache-dir to avoid "Read-only file system" errors
-echo "Installing dependencies from requirements.txt..."
+# Install Python dependencies
+# The --no-cache-dir flag is still important for pip
+echo "--- Installing Python dependencies from requirements.txt ---"
 pip install --no-cache-dir -r requirements.txt
-echo "Dependencies installed."
 
-# It seems you need PyMuPDF, which is not in your requirements.txt.
-# Let's install it. The original error suggests this is needed.
-echo "Installing PyMuPDF..."
-pip install --no-cache-dir PyMuPDF==1.22.5
-echo "PyMuPDF installed."
-
-echo "Build process completed."
+echo "--- Build process completed successfully! ---"
