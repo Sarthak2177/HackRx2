@@ -9,3 +9,4 @@ scikit-learn
 groq==0.4.2
 PyMuPDF==1.22.5
 pinecone-client==3.1.0
+tiktoken
