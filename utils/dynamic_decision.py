@@ -36,6 +36,8 @@ MOST IMPORTANT:
 - If clauses or section numbers are present,must include them in "justification" and "referenced_clauses".
 - Be concise and objective. 
 - Use all the provided policy clauses in the context while answering each question. Do not ignore or skip any clause. Cross-reference clauses if needed to provide the most accurate answer.
+- If multiple clauses are relevant to a question, list all applicable ones under "referenced_clauses".
+
 Respond in this exact JSON format:
 {
   "answers": [
@@ -52,7 +54,8 @@ Respond in this exact JSON format:
 
         # Step 1: Validate and split questions
         if isinstance(joined_questions, str):
-            questions = [q.strip() for q in re.split(r'(?<=\?)\s+', joined_questions) if len(q.strip()) > 5]
+            questions = [q.strip() for q in re.split(r'(?<=[?.!])\s+(?=[A-Z])', joined_questions) if len(q.strip()) > 5]
+
         elif isinstance(joined_questions, list):
             questions = [q.strip() for q in joined_questions if isinstance(q, str) and len(q.strip()) > 5]
         else:
@@ -115,4 +118,5 @@ Questions to answer:
                     }
                 ]
             })
+
 
