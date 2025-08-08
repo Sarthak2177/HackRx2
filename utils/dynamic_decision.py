@@ -6,8 +6,8 @@ import os
 from dotenv import load_dotenv
 import httpx
 
+# Load environment variables
 load_dotenv()
-
 custom_http_client = httpx.Client()
 
 client = Groq(
@@ -51,7 +51,7 @@ Respond in this exact JSON format:
 
         # Step 1: Validate and split questions
         if isinstance(joined_questions, str):
-            questions = [q.strip() for q in re.split(r'(?<=[?])\s+', joined_questions) if len(q.strip()) > 5]
+            questions = [q.strip() for q in re.split(r'(?<=\?)\s+', joined_questions) if len(q.strip()) > 5]
         elif isinstance(joined_questions, list):
             questions = [q.strip() for q in joined_questions if isinstance(q, str) and len(q.strip()) > 5]
         else:
