@@ -6,15 +6,21 @@ from typing import List
 import json
 import os
 import re
-import time
 import hashlib
 import asyncio
 from dotenv import load_dotenv
 from utils.dynamic_decision import DynamicDecisionEngine
 from utils.extract_text_from_pdfs import extract_text_from_pdf as download_pdf_and_extract_text
-from utils.chunk_utils import chunk_text, store_chunks_to_pinecone, get_relevant_chunks
+from utils.chunk_utils import chunk_text
+import tiktoken
+from pinecone import Pinecone
 
 load_dotenv()
+
+# Pinecone init
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index_name = os.getenv("PINECONE_INDEX_NAME", "hackrx")
+index = pc.Index(index_name)
 
 app = FastAPI()
 security = HTTPBearer()
@@ -48,6 +54,19 @@ def extract_questions_from_text(text: str, max_q: int = 10) -> List[str]:
     ]
     return questions[:max_q]
 
+def get_relevant_chunks(query: str, namespace: str, top_k: int = 20):
+    embed_model = tiktoken.get_encoding("cl100k_base")
+    input_ids = embed_model.encode(query)
+    vector = [float(x) for x in input_ids[:768]] + [0.0] * (768 - len(input_ids[:768]))
+
+    results = index.query(
+        vector=vector,
+        top_k=top_k,
+        include_metadata=True,
+        namespace=namespace
+    )
+    return [match["metadata"]["text"] for match in results.get("matches", [])]
+
 @app.post("/hackrx/run", response_model=QueryResponse)
 async def run_decision_engine(
     payload: QueryRequest,
@@ -61,12 +80,6 @@ async def run_decision_engine(
         raw_text = download_pdf_and_extract_text(payload.documents)
         chunks = chunk_text(raw_text)
         namespace = hashlib.md5(payload.documents.encode()).hexdigest()
-
-        existing_chunks = get_relevant_chunks("check", namespace=namespace)
-        if len(existing_chunks) < 5:
-            store_chunks_to_pinecone(chunks, namespace=namespace)
-        else:
-            print("✅ Chunks already exist, skipping upsert.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
 
@@ -89,7 +102,7 @@ async def run_decision_engine(
         answers = [ans for batch in all_answers for ans in batch]
 
     except Exception as e:
-        print("❌ Error during question processing:", str(e))
+        print("\u274c Error during question processing:", str(e))
         answers = [f"LLM processing failed: {str(e)}"] * len(payload.questions)
 
     return {
@@ -102,7 +115,7 @@ async def process_question_batch(batch_questions: List[str], relevant_chunks: Li
     trimmed_chunks = [chunk[:1000] for chunk in relevant_chunks[:max_chunks]]
 
     result = decision_engine.make_decision_from_context("\n".join(batch_questions), {}, trimmed_chunks)
-    print("🧠 Raw LLM response:\n", result)
+    print("\U0001f9e0 Raw LLM response:\n", result)
 
     if result is None or (isinstance(result, str) and not result.strip()):
         return ["LLM returned empty response"] * len(batch_questions)
@@ -142,6 +155,6 @@ async def process_question_batch(batch_questions: List[str], relevant_chunks: Li
         return [safe_strip(parsed_result)]
 
     except Exception as e:
-        print("❌ Parsing error:", str(e))
-        print("❗Failed content:\n", result)
+        print("\u274c Parsing error:", str(e))
+        print("\u2757Failed content:\n", result)
         return [f"LLM parsing failed: {str(e)}"] * len(batch_questions)
