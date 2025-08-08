@@ -32,7 +32,7 @@ Use ONLY the provided context to answer each question accurately.
 
 MOST IMPORTANT:
 - Pay special attention to all medical-related information, including treatments, surgeries, coverage conditions, exclusions, waiting periods, sub-limits, and definitions relevant to healthcare.
-- Quote exact numbers (e.g., 24 months, 2 years, 1%) from the context.
+- Quote exact numbers of time duration and precent(e.g., 24 months, 2 years, 1%) from the context.
 - If clauses or section numbers are present,must include them in "justification" and "referenced_clauses".
 - Be concise and objective. 
 - Use all the provided policy clauses in the context while answering each question. Do not ignore or skip any clause. Cross-reference clauses if needed to provide the most accurate answer.
@@ -118,5 +118,6 @@ Questions to answer:
                     }
                 ]
             })
+
 
 
