@@ -98,6 +98,7 @@ async def run_decision_engine(
     response_time = round(time.time() - start_time, 2)
     return {
         "answers": answers,
+        "response_time_seconds": response_time,
         "success": True
     }
 
