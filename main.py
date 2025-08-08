@@ -6,6 +6,7 @@ from typing import List
 import json
 import os
 import re
+import time
 import hashlib
 import asyncio
 from dotenv import load_dotenv
@@ -33,6 +34,7 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     answers: List[str]
+    response_time_seconds: float
     success: bool
 
 def extract_questions_from_text(text: str, max_q: int = 10) -> List[str]:
@@ -52,6 +54,8 @@ async def run_decision_engine(
     payload: QueryRequest,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
+    start_time = time.time()
+
     token = credentials.credentials
     if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
@@ -91,8 +95,10 @@ async def run_decision_engine(
         print("❌ Error during question processing:", str(e))
         answers = [f"LLM processing failed: {str(e)}"] * len(payload.questions)
 
+    response_time = round(time.time() - start_time, 2)
     return {
         "answers": answers,
+        "response_time_seconds": response_time,
         "success": True
     }
 
