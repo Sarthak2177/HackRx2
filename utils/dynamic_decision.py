@@ -29,8 +29,8 @@ class DynamicDecisionEngine:
         instruction = '''
 Use ONLY the provided context to answer each question as accurately and specifically as possible.
 
-IMPORTANT GUIDELINES:
-- Always extract and include exact figures like all periods.
+MOST IMPORTANT GUIDELINES:
+- Always consider numerical data like time period cap values.
 - If the context contains clause/section numbers, always include them in the justification and referenced_clauses.
 
 Respond in this exact JSON format:
@@ -99,3 +99,4 @@ Questions:
                     }
                 ]
             })
+
