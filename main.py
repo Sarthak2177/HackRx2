@@ -54,7 +54,7 @@ def extract_questions_from_text(text: str, max_q: int = 10) -> List[str]:
     ]
     return questions[:max_q]
 
-def get_relevant_chunks(query: str, namespace: str, top_k: int = 20):
+def get_relevant_chunks(query: str, namespace: str, top_k: int = 25):
     embed_model = tiktoken.get_encoding("cl100k_base")
     input_ids = embed_model.encode(query)
     vector = [float(x) for x in input_ids[:768]] + [0.0] * (768 - len(input_ids[:768]))
@@ -158,4 +158,5 @@ async def process_question_batch(batch_questions: List[str], relevant_chunks: Li
         print("\u274c Parsing error:", str(e))
         print("\u2757Failed content:\n", result)
         return [f"LLM parsing failed: {str(e)}"] * len(batch_questions)
+
 
