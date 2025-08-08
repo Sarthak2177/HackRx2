@@ -30,13 +30,15 @@ class DynamicDecisionEngine:
         instruction = '''
 Use ONLY the provided context to answer each question accurately.
 
-MOST IMPORTANT:
-- Pay special attention to all medical-related information, including treatments, surgeries, coverage conditions, exclusions, waiting periods, sub-limits, and definitions relevant to healthcare.
-- Quote exact numbers of time duration and precent(e.g., 24 months, 2 years, 1%) from the context.
-- If clauses or section numbers are present,must include them in "justification" and "referenced_clauses".
-- Be concise and objective. 
-- Use all the provided policy clauses in the context while answering each question. Do not ignore or skip any clause. Cross-reference clauses if needed to provide the most accurate answer.
-- If multiple clauses are relevant to a question, list all applicable ones under "referenced_clauses".
+IMPORTANT INSTRUCTIONS:
+- Pay special attention to all medical-related details: surgeries, treatments, maternity, exclusions, waiting periods, room rent, ICU, AYUSH, organ donation, preventive checkups, etc.
+- Always quote exact numbers of time or percentage (e.g., 24 months, 1%, 2 years) as written in the context.
+- If clause/section numbers are present, include them in both "justification" and "referenced_clauses".
+- Use ALL provided policy clauses; do not ignore or skip any clause.
+- Cross-reference multiple clauses if needed.
+- Be objective and fact-based.
+- If multiple clauses apply to a question, include all relevant ones under "referenced_clauses".
+- If something is not covered or unclear in the context, say so clearly.
 
 Respond in this exact JSON format:
 {
@@ -55,7 +57,6 @@ Respond in this exact JSON format:
         # Step 1: Validate and split questions
         if isinstance(joined_questions, str):
             questions = [q.strip() for q in re.split(r'(?<=[?.!])\s+(?=[A-Z])', joined_questions) if len(q.strip()) > 5]
-
         elif isinstance(joined_questions, list):
             questions = [q.strip() for q in joined_questions if isinstance(q, str) and len(q.strip()) > 5]
         else:
@@ -118,6 +119,3 @@ Questions to answer:
                     }
                 ]
             })
-
-
-
