@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Any
+from typing import List
 import json
 import os
 import re
@@ -34,6 +34,7 @@ class QueryRequest(BaseModel):
 
 class QueryResponse(BaseModel):
     answers: List[str]
+    response_time_seconds: float
     success: bool
 
 def extract_questions_from_text(text: str, max_q: int = 10) -> List[str]:
@@ -53,6 +54,8 @@ async def run_decision_engine(
     payload: QueryRequest,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
+    start_time = time.time()
+
     token = credentials.credentials
     if not token:
         raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
@@ -67,7 +70,6 @@ async def run_decision_engine(
             store_chunks_to_pinecone(chunks, namespace=namespace)
         else:
             print("✅ Chunks already exist, skipping upsert.")
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process document: {str(e)}")
 
@@ -93,8 +95,11 @@ async def run_decision_engine(
         print("❌ Error during question processing:", str(e))
         answers = [f"LLM processing failed: {str(e)}"] * len(payload.questions)
 
-    return {"answers": answers, "success": True}
-
+    response_time = round(time.time() - start_time, 2)
+    return {
+        "answers": answers,
+        "success": True
+    }
 
 async def process_question_batch(batch_questions: List[str], relevant_chunks: List[str]) -> List[str]:
     max_chunks = 15
@@ -123,14 +128,20 @@ async def process_question_batch(batch_questions: List[str], relevant_chunks: Li
                     for a in parsed_result['answers']
                 ]
             elif 'questions_analysis' in parsed_result:
-                return [safe_strip(qa.get('justification') or qa.get('answer')) for qa in parsed_result['questions_analysis']]
+                return [
+                    safe_strip(qa.get('justification') or qa.get('answer'))
+                    for qa in parsed_result['questions_analysis']
+                ]
             elif 'decision' in parsed_result:
                 return [safe_strip(parsed_result.get("justification") or parsed_result.get("answer"))]
             else:
                 return [safe_strip(parsed_result)]
 
         elif isinstance(parsed_result, list):
-            return [safe_strip(a.get("justification") or a.get("answer") or a) for a in parsed_result]
+            return [
+                safe_strip(a.get("justification") or a.get("answer") or a)
+                for a in parsed_result
+            ]
 
         return [safe_strip(parsed_result)]
 
