@@ -2,8 +2,14 @@ services:
   - type: web
     name: hackrx-api
     runtime: python
-    buildCommand: pip install --only-binary=:all: -r requirements.txt
-    startCommand: ./start.sh
+    buildCommand: ./build.sh
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: GROQ_API_KEY
-        value: your_real_key_here
+        fromSecret: true # Or fromEnv: true if not a secret
+      - key: PINECONE_API_KEY
+        fromSecret: true
+      - key: PINECONE_INDEX_HOST
+        fromEnv: true
+      - key: PINECONE_INDEX_NAME
+        fromEnv: true
