@@ -26,26 +26,27 @@ class DynamicDecisionEngine:
 
         system_role = "You are a senior insurance policy assistant. Only answer based on provided context. Never assume."
 
-        instruction = '''
+instruction = '''
 Use ONLY the provided context to answer each question as accurately and specifically as possible.
 
 IMPORTANT GUIDELINES:
-- Always extract and include exact figures like all periods.
-- If the context contains clause/section numbers, always include them in the justification and referenced_clauses.
+- Extract and include exact figures like days, months, or years.
+- Include the full clause or section numbers that justify your answers.
+- Never guess. Say “Not mentioned in context” if unsure.
 
-Respond in this exact JSON format:
+Respond in this JSON format:
 {
   "answers": [
     {
       "question": "...",
-      "answer": "Direct, fact-based answer from the context (limit to 2 sentences).",
-      "justification": "Which clause/section justifies it (if any), with explanation.",
-      "referenced_clauses": ["Clause X.Y"]
-    },
-    ...
+      "answer": "...",
+      "justification": "...",
+      "referenced_clauses": [...]
+    }
   ]
 }
 '''
+
 
         # Convert joined_questions to list of strings
         if isinstance(joined_questions, str):
@@ -99,3 +100,4 @@ Questions:
                     }
                 ]
             })
+
