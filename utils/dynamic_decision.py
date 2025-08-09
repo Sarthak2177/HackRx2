@@ -1,6 +1,7 @@
 import json
 import re
-from typing import List, Dict, Any
+import ast
+from typing import List, Dict, Any, Union
 from groq import Groq
 import os
 from dotenv import load_dotenv
@@ -19,7 +20,12 @@ class DynamicDecisionEngine:
     def __init__(self):
         pass
 
-    def make_decision_from_context(self, joined_questions: str, metadata: Dict[str, Any], context_chunks: List[str]) -> str:
+    def make_decision_from_context(
+        self,
+        joined_questions: Union[str, List[str]],
+        metadata: Dict[str, Any],
+        context_chunks: List[str]
+    ) -> str:
         context_text = "\n\n".join(context_chunks)
 
         system_role = (
@@ -30,60 +36,35 @@ class DynamicDecisionEngine:
         instruction = '''
 Use ONLY the provided context to answer each question accurately.
 
-IMPORTANT INSTRUCTIONS:
-- Pay special attention to all medical-related details: surgeries, treatments, maternity, exclusions, waiting periods, room rent, ICU, AYUSH, organ donation, preventive checkups, etc.
-- Always quote exact numbers of time or percentage (e.g., 24 months, 1%, 2 years) as written in the context.
-- If clause/section numbers are present, include them in both "justification" and "referenced_clauses".
-- Use ALL provided policy clauses; do not ignore or skip any clause and Cross-reference multiple clauses if needed.
-- Be objective and fact-based.
-- If multiple clauses apply to a question, include all relevant ones under "referenced_clauses".
-- Every answer must include an exact clause reference or section number in "justification" and "referenced_clauses".
-- Prefer quoting exact wording from the policy when available, especially for definitions, durations, and sub-limits.
-
-Respond in this exact JSON format:
+INTERNAL WORK:
+- First, think step-by-step using a structure: {question, answer, justification, referenced_clauses}.
+- You MUST reason with clause references, exact numbers, and wording from context.
+- Do not skip relevant clauses, and cross-reference multiple ones if needed.
+- Try to keep answers in single lines.
+OUTPUT FORMAT:
+Return a JSON object:
 {
   "answers": [
-    {
-      "question": "...",
-      "answer": "Fact-based answer in 1–2 sentences, using wording from context.",
-      "justification": "Mention clause reference or quote context that justifies the answer.",
-      "referenced_clauses": ["Clause X.Y", "Section 3.2"]
-    },
+    "Plain answer to question 1",
+    "Plain answer to question 2",
     ...
   ]
 }
+Where each item in "answers" is just the final answer text, **no question, justification, or clause data**.
 '''
 
-        # Step 1: Validate and split questions
+        # Step 1: Normalize questions
         if isinstance(joined_questions, str):
             questions = [q.strip() for q in re.split(r'(?<=[?.!])\s+(?=[A-Z])', joined_questions) if len(q.strip()) > 5]
         elif isinstance(joined_questions, list):
             questions = [q.strip() for q in joined_questions if isinstance(q, str) and len(q.strip()) > 5]
         else:
-            return json.dumps({
-                "answers": [
-                    {
-                        "question": "Invalid input",
-                        "answer": "Input must be a string or list of strings.",
-                        "justification": "",
-                        "referenced_clauses": []
-                    }
-                ]
-            })
+            return json.dumps({"answers": []})
 
         if not questions:
-            return json.dumps({
-                "answers": [
-                    {
-                        "question": "No valid questions provided",
-                        "answer": "Please provide one or more meaningful questions.",
-                        "justification": "",
-                        "referenced_clauses": []
-                    }
-                ]
-            })
+            return json.dumps({"answers": []})
 
-        # Step 2: Format prompt
+        # Step 2: Build prompt
         prompt = f"""Context (policy clauses):
 {context_text}
 
@@ -105,18 +86,57 @@ Questions to answer:
                 response_format={"type": "json_object"},
                 max_tokens=2048
             )
-            return response.choices[0].message.content.strip()
+
+            content = response.choices[0].message.content
+            parsed = self._safe_json_load(content)
+
+            # Ensure "answers" is a clean list of strings
+            if not parsed or "answers" not in parsed:
+                return json.dumps({"answers": []})
+
+            clean_answers = []
+            for ans in parsed["answers"]:
+                if isinstance(ans, dict) and "answer" in ans:
+                    clean_answers.append(ans["answer"].strip())
+                elif isinstance(ans, str):
+                    # Try parsing stringified dict
+                    maybe_dict = self._try_parse_dict_string(ans)
+                    if "answer" in maybe_dict:
+                        clean_answers.append(maybe_dict["answer"].strip())
+                    else:
+                        clean_answers.append(ans.strip())
+                else:
+                    clean_answers.append(str(ans).strip())
+
+            return json.dumps({"answers": clean_answers}, ensure_ascii=False)
 
         except Exception as e:
             print("❌ LLM call failed:", str(e))
-            return json.dumps({
-                "answers": [
-                    {
-                        "question": questions[0] if questions else "Unknown",
-                        "answer": "LLM failed to generate response.",
-                        "justification": str(e),
-                        "referenced_clauses": []
-                    }
-                ]
-            })
+            return json.dumps({"answers": []})
 
+    def _safe_json_load(self, data: Union[str, dict]) -> dict:
+        """Safely load JSON/dict content."""
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, str):
+            try:
+                return json.loads(data)
+            except json.JSONDecodeError:
+                try:
+                    return ast.literal_eval(data)
+                except Exception:
+                    return {}
+        return {}
+
+    def _try_parse_dict_string(self, text: str) -> dict:
+        """Try to parse string that looks like a dict."""
+        text = text.strip()
+        if (text.startswith("{") and text.endswith("}")):
+            try:
+                return ast.literal_eval(text)
+            except Exception:
+                try:
+                    return json.loads(text)
+                except Exception:
+                    return {}
+        return {}

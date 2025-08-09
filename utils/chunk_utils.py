@@ -1,74 +1,74 @@
-import os
-from dotenv import load_dotenv
-from pinecone import Pinecone
+import uuid
+from PyPDF2 import PdfReader
+from utils.index import pc, PINECONE_INDEX_NAME
 
-# Load .env variables
-load_dotenv()
+# 🔒 Always use one namespace for this project
+NAMESPACE = "hackrx"
 
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "hackrx")
-NAMESPACE = "hackrx-docs"
+def read_pdf_text(file_path):
+    """Extract all text from a PDF file."""
+    reader = PdfReader(file_path)
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text.strip() + "\n"
+    return text.strip()
 
-if not PINECONE_API_KEY:
-    raise ValueError("❌ PINECONE_API_KEY is missing. Please check your .env file")
-
-# Initialize Pinecone
-pc = Pinecone(api_key=PINECONE_API_KEY)
-index = pc.Index(PINECONE_INDEX_NAME)
-
-# Function to chunk text
-def chunk_text(text, max_length=1000):
-    sentences = text.split(".")
+def chunk_text(text, chunk_size=500, overlap=50):
+    """Split text into chunks with overlap."""
+    words = text.split()
     chunks = []
-    current = ""
-    for sentence in sentences:
-        if len(current) + len(sentence) + 1 <= max_length:
-            current += sentence + "."
-        else:
-            chunks.append(current.strip())
-            current = sentence + "."
-    if current:
-        chunks.append(current.strip())
+    start = 0
+    while start < len(words):
+        end = min(start + chunk_size, len(words))
+        chunk = " ".join(words[start:end])
+        chunks.append(chunk)
+        start += chunk_size - overlap
     return chunks
 
-# ✅ Fixed: Upsert records using Pinecone built-in text-index format
-def store_chunks_to_pinecone(chunks, namespace=NAMESPACE):
-    BATCH_SIZE = 96
-    total_chunks = len(chunks)
-
-    for i in range(0, total_chunks, BATCH_SIZE):
-        batch = chunks[i:i + BATCH_SIZE]
-
-        records = [
-            {
-                "id": f"chunk-{i+j}",
-                "values": None,
-                "metadata": {
-                    "chunk_text": chunk
-                }
-            }
-            for j, chunk in enumerate(batch)
-        ]
-
+def store_chunks_to_pinecone(chunks, file_name):
+    """
+    Store text chunks in Pinecone using server-side embeddings.
+    file_name is stored in metadata for future filtering.
+    """
+    index = pc.Index(PINECONE_INDEX_NAME)
+    records = [
+        {
+            "_id": str(uuid.uuid4()),
+            "chunk_text": chunk,
+            "source_doc": file_name  # keep track of which file this chunk came from
+        }
+        for chunk in chunks
+    ]
+    batch_size = 96
+    uploaded = 0
+    for i in range(0, len(records), batch_size):
+        batch = records[i:i+batch_size]
         try:
-            index.upsert(vectors=records, namespace=namespace)
-            print(f"✅ Upserted batch {i // BATCH_SIZE + 1}")
+            index.upsert_records(NAMESPACE, batch)
+            uploaded += len(batch)
         except Exception as e:
-            print(f"❌ Pinecone upsert failed at batch {i // BATCH_SIZE + 1}: {e}")
+            print(f"❌ Pinecone upsert_records failed for batch starting at {i}: {e}")
+    print(f"✅ Finished upserting {uploaded}/{len(records)} chunks to namespace '{NAMESPACE}'")
 
-# ✅ Fixed: Search using Pinecone built-in text input
-def get_relevant_chunks(query, namespace=NAMESPACE, top_k=8):
-    try:
-        results = index.query(
-            top_k=top_k,
-            include_metadata=True,
-            namespace=namespace,
-            vector=None,
-            filter=None,
-            id=None,
-            text=query  # 🔥 Key line: use text directly (Pinecone inbuilt embed model)
-        )
-        return [match["metadata"]["chunk_text"] for match in results["matches"]]
-    except Exception as e:
-        print(f"❌ Error during Pinecone search: {e}")
-        return []
+def get_relevant_chunks(query: str, top_k: int = 15):
+    """Search Pinecone for most relevant chunks for a query."""
+    index = pc.Index(PINECONE_INDEX_NAME)
+    results = index.search(
+        namespace=NAMESPACE,
+        query={
+            "top_k": top_k,
+            "inputs": {
+                "text": query
+            }
+        }
+    )
+
+    chunks = []
+    hits = results.get("result", {}).get("hits", [])
+    for hit in hits:
+        fields = hit.get("fields", {})
+        if "chunk_text" in fields:
+            chunks.append(fields["chunk_text"])
+    return chunks
